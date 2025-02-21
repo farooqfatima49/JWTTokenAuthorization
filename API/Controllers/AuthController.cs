@@ -1,5 +1,7 @@
 ﻿
+using DTOs;
 using Microsoft.AspNetCore.Mvc;
+using Models;
 using PracticeApp.Middleware;
 using Repository;
 
@@ -15,10 +17,10 @@ namespace API.Controllers
             _authInterface = authInterface;
         }
 
-        [HttpGet("signin")]
-        public IActionResult SignIn(string username, string password)
+        [HttpPost("signin")]
+        public IActionResult SignIn(LoginDTO loginDto)
         {
-            return Ok(_authInterface.SignIn(username, password));
+            return Ok(_authInterface.SignIn(loginDto));
         }
         [Authorize]
         [HttpGet("privatedata")]

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DTOs;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,7 +9,7 @@ namespace Repository
 {
     public interface IAuthInterface
     {
-        string SignIn (string username, string password);
+        string SignIn (LoginDTO loginDTO);
         string GetData(string jwtToken);
     }
 }

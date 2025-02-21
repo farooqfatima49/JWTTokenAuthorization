@@ -12,17 +12,26 @@ namespace Shared
         public static string Issuer = "https://localhost:7296/";
         public static string Key = "authenticationkeyforapp12345678666966";
         public static double ExpiryMinutes = 60;
-        public static string GetToken(this string userId)
+        public static string GetToken(this AppUser appUser)
         {
             var claims = new List<Claim>
              {
-                 new Claim("UserId", userId?.ToString()),
+                 new Claim("UserId", appUser.Id.ToString()),
+                 new Claim("Name", appUser.Name.ToString()),
+                 new Claim("Email", appUser.Email.ToString()),
              };
-            return new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken(TokenHelper.Issuer,
-              TokenHelper.Issuer,
-              claims, null,
-              DateTime.Now.AddMinutes(TokenHelper.ExpiryMinutes),
-              signingCredentials: new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TokenHelper.Key)), SecurityAlgorithms.HmacSha256)));
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TokenHelper.Key));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var token = new JwtSecurityToken(
+                issuer: TokenHelper.Issuer,
+                audience: TokenHelper.Issuer,  // Could use a different audience here if necessary
+                claims: claims,
+                expires: DateTime.Now.AddMinutes(TokenHelper.ExpiryMinutes),
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
         }
         public static TokenValidationParameters GetValidationParameters(double expiryMin, string issuer, string key)
         {
@@ -45,47 +54,61 @@ namespace Shared
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key))
             };
         }
-        private static JwtSecurityToken Validate(this string token)
-        {
-            SecurityToken validatedToken;
-            IPrincipal principal = new JwtSecurityTokenHandler().ValidateToken(token, GetValidationParameters(TokenHelper.ExpiryMinutes, TokenHelper.Issuer, TokenHelper.Key), out validatedToken);
-            return (JwtSecurityToken)validatedToken;
-        }
-        public static UserProfile GetClaim(this string token)
+        private static JwtSecurityToken ValidateTokenAndGetJwt(this string token)
         {
             try
             {
-                JwtSecurityToken validToken = token.Validate();
-                return token.ReadToken();
+                SecurityToken validatedToken;
+                IPrincipal principal = new JwtSecurityTokenHandler().ValidateToken(
+                    token,
+                    GetValidationParameters(TokenHelper.ExpiryMinutes, TokenHelper.Issuer, TokenHelper.Key),
+                    out validatedToken);
+
+                return validatedToken as JwtSecurityToken;
             }
             catch (SecurityTokenValidationException)
             {
-                throw new UnauthorizedAccessException();
+                throw new UnauthorizedAccessException("Invalid token.");
             }
             catch (ArgumentException)
             {
-                throw new UnauthorizedAccessException();
+                throw new UnauthorizedAccessException("Token is malformed.");
             }
         }
-        private static UserProfile ReadToken(this string token)
+
+        public static UserProfile GetClaim(this string token)
         {
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var securityToken = (JwtSecurityToken)tokenHandler.ReadToken(token);
+            JwtSecurityToken validToken = token.ValidateTokenAndGetJwt();
+            return validToken.ReadToken();
+        }
+        private static UserProfile ReadToken(this JwtSecurityToken token)
+        {
             return new UserProfile
             {
-                Id = securityToken.Payload.Claims?.FirstOrDefault(x => x.Type.Equals("UserId", StringComparison.OrdinalIgnoreCase))?.Value,
+                Id = token.Payload.Claims?.FirstOrDefault(x => x.Type.Equals("UserId", StringComparison.OrdinalIgnoreCase))?.Value,
+                Name = token.Payload.Claims?.FirstOrDefault(x => x.Type.Equals("Name", StringComparison.OrdinalIgnoreCase))?.Value,
+                Email = token.Payload.Claims?.FirstOrDefault(x => x.Type.Equals("Email", StringComparison.OrdinalIgnoreCase))?.Value,
             };
         }
         public static bool ValidateToken(this string token)
         {
             try
             {
-                JwtSecurityToken validToken = token.Validate();
+                JwtSecurityToken validToken = token.ValidateTokenAndGetJwt();
                 return true;
             }
-            catch { return false; }
-
-
+            catch (SecurityTokenExpiredException)
+            {
+                return false;
+            }
+            catch (SecurityTokenValidationException)
+            {
+                return false;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
     }
 }

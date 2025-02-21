@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using DTOs;
+using Models;
 using Shared;
 
 namespace Repository
@@ -11,15 +13,15 @@ namespace Repository
     {
         public AuthService() { 
         }
-        public string SignIn(string username, string password)
+        public string SignIn(LoginDTO loginDto)
         {
-            if(username == null || password == null)
+            if(loginDto.Username == null || loginDto.Password == null)
                 throw new ArgumentNullException("username");
-            if(password == null) throw new ArgumentNullException("password");
-            if(username=="Admin" && password == "Admin@123")
+            if(loginDto.Password == null) throw new ArgumentNullException("password");
+            if(loginDto.Username=="Admin" && loginDto.Password == "Admin@123")
             {
-                Console.WriteLine("SignIn successfully");
-                return username.GetToken();
+                AppUser appUser = new ();
+                return appUser.GetToken();
             }
             return string.Empty;
 
